@@ -9,4 +9,7 @@ Speedshots
 
 Bunnyhop
 
+
 Works very badly
+Copied code from lots of people
+
