@@ -4,6 +4,7 @@
 #include "sdk.h"
 #include <limits>
 #include "general.h"
+#include <stdexcept>
 extern char SpeedShotKey[];
 
 trace_t myTrace;
@@ -11,7 +12,6 @@ trace_t myTrace;
 std::vector<float>endPosDists;
 std::vector<Vector>Positions2;
 std::vector<float>frameTimes;
-std::vector<float>zVels2;
 
 
 
@@ -64,20 +64,16 @@ int positionCounter;
 int numOfPositions = 0;
 Vector lastPos;
 Vector v_customEndPos; 
-//float timeToLandFn(float zVel, float zPosStart, float zPosEnd) {
-//	return ((-(zVel)-sqrt(zVel * zVel - (2 * gravity * (zPosStart - zPosEnd)))) / gravity);
-//}
+
+
 bool checkForLandTick2 = false;
 int addoneortwo = 0;
 float predictedLandTime;
 
 
-bool closeToEndPos(const Vector& currentPos, const Vector& endPos, float threshold) {
-	return sqrt(endPos.LengthSqr()) - sqrt(currentPos.LengthSqr()) < threshold;
-}
 
+void speedShot(CUserCmd* pCommand);
 
-std::vector<usefulCmds>pastCommands;
 bool checkForLandTick = false;
 int shotTick;
 void  __fastcall hookedcreatemove(DWORD ClientMode, DWORD edx, CUserCmd* pCommand) {// NOT ACTUALLY CREATEMOVE
@@ -103,7 +99,7 @@ void  __fastcall hookedcreatemove(DWORD ClientMode, DWORD edx, CUserCmd* pComman
 	static int ticksToLand;
 	static std::vector<int> thresholdTicks;
 	static int tickAtClosestDiff = INT_MAX;
-	static bool speedShoting = false;
+	
 	static float latestDistance = 1100.f * firedelay;
 	static bool moveForward2 = false;
 	
@@ -116,21 +112,8 @@ void  __fastcall hookedcreatemove(DWORD ClientMode, DWORD edx, CUserCmd* pComman
 	static bool getEndPos = false;
 	static float lastOrigin;
 	static float lastPred;
-	static bool recordMovement = false;
-	if ((GetAsyncKeyState(VK_F2) & 1)) {//&& (!GetAsyncKeyState(VK_SHIFT) & 1)) {
-		if (recordMovement == false) {
-			print("Command recording turned on\n");
-			pastCommands.clear();
-		}
-		else {
-			print("Command recording turned off\n");
-		}
-		recordMovement = !recordMovement;
-	}
-	if (recordMovement) {
-		
-		pastCommands.push_back(usefulCmds(pCommand->forwardmove, pCommand->sidemove, pCommand->buttons, pCommand->viewangles));
-	}
+
+
 	static int nextTick = -1;
 	static bool bunnyHopping = false;
 	if (GetAsyncKeyState('U') & 1) { // U for c-tap...
@@ -172,7 +155,6 @@ void  __fastcall hookedcreatemove(DWORD ClientMode, DWORD edx, CUserCmd* pComman
 	static CBaseEntity* ent2;
 	static DWORD pointsTo2;
 	static bool predictionStarted = false;
-	static bool withSpeedShots = true;
 	static bool moveToPos = false;
 	static Vector goToPos;
 		
@@ -180,67 +162,13 @@ void  __fastcall hookedcreatemove(DWORD ClientMode, DWORD edx, CUserCmd* pComman
 	static float actualTotalFrametime;
 	static float lastPredz;
 
-	if (!speedShoting && GetAsyncKeyState(SpeedShotKey[0]) & 1)
-	{
-		moveForward2 = true;
-		checkForLandTick = true;
-		pCommand->buttons |= 4;
-		speedShotStartTick = gpGlobals->tickcount + 1;
+	try {
+		speedShot(pCommand);
+		sync(pCommand);
 	}
-	if (speedShotStartTick == gpGlobals->tickcount && GetGroundEntity(pPlayer) == NULL) {
-		GetEndPos(false, true);
-		speedShoting = true;
-		moveForward2 = false;
-		ticksToLand = Positions.size();
+	catch (const std::out_of_range& oor) {
+		print("error");
 	}
-	if(speedShoting) {
-		
-		pCommand->forwardmove = 0; // Cancel all movement...
-		pCommand->sidemove = 0;
-		pCommand->buttons |= 4;
-		int currentTick = gpGlobals->tickcount - speedShotStartTick;// *(int*)((DWORD)pPlayer+4428)
-		if (currentTick+1 < Positions.size()) {
-		
-			Vector myRocketSource;
-			Vector endPosLocal;
-			//myRocketSource = rocketSource2(&(pCommand->viewangles), &endPosLocal, NULL);
-			//myRocketSource = rocketSource2(&(pCommand->viewangles), NULL, NULL);
-			myRocketSource = rocketSource2(&(pCommand->viewangles), NULL, &Positions[currentTick+1]);
-			//int ticksToExplode = (int)(dist(myRocketSource, endPosLocal) / (1100.f*0.015f))+1;
-			int ticksToExplode = (int)(dist(myRocketSource, desiredRocketEndPos) / (1100.f * 0.015f)) + 1;
-
-			// land one tick before rocket reaches endPos for explosion???
-			// +1 tick to shoot, + 1 tick to explode?
-			if (ticksToLand-- == ticksToExplode+1/*(timeToLand - (timeToExplode)) <0.01f*/) {//Equal exactly????? Im guessing they don't have to be equal exactly. I think the rocket should explode once your
-			
-
-				pCommand->buttons |= 1;
-				shotTick = gpGlobals->tickcount;
-
-		
-				speedShoting = false;
-				zVels.clear();
-				Positions.clear();
-				Positions2.clear();
-					zVels2.clear();
-				mySpecialIndex = 0;
-			}
-
-		}
-		else {
-			print("SpeedShot failed\n");
-			speedShoting = false;
-			zVels.clear();
-			Positions.clear();
-			Positions2.clear();
-			zVels2.clear();
-			mySpecialIndex = 0;
-		}
-									  /*z vel is 0 and your horizontal velocity isn't fully slowed down by friction yet. Although maybe you don't get nearly as much speed as when the rocket
-	 explodes on the tick you land. (Failed speedshots with a big red damage bar...)*/
-	}
-	
-	sync(pCommand);
 
 		if (checkForLandTick && gpGlobals->tickcount != speedShotStartTick) {
 			if ( g_pMoveData->m_vecVelocity.z == 0) {

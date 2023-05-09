@@ -1,10 +1,10 @@
 #pragma once
 extern void GetEndPos(bool WhenStopped = false, bool speedShoting = false, bool desiredPosIsLandingPos = true);
 extern std::vector<Vector>Positions;
-extern std::vector<float>zVels;
+
 extern void AngleVectors(const Vector& angles, Vector* forward, Vector* right, Vector* up);
 constexpr float firedelay = 0.80000001;
-extern Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position);
+extern Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position, bool crouched = true);
 extern void VectorAngles(const Vector& forward, Vector& angles);
 extern inline void ClampAngle(Vector& qaAng);
 extern Vector predictedLandingPos;
@@ -22,3 +22,4 @@ enum {
 	PITCH, YAW, ROLL
 };
 extern CMoveData noNullPtr;
+void ProcessMovementWrapper();

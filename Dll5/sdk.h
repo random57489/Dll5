@@ -231,12 +231,41 @@ public:
 class ConCommandBase
 {
 };
-struct ConVar {
-	// how to get size, write constexpr size_t sizeOfConvar = sizeof(ConVar) in source code leak, hover over sizeOfConvar, size is 92U??
-	// in IDA, the largest offset from ecx is 0x58... (I didn't check all functions just the 
-	BYTE a[0x24];
+struct ConVar { 
+	/*BYTE a[0x24];
 	int m_nValue;
-	BYTE b[0x58 - 0x28];
+	BYTE b[0x58 - 0x28];*/
+	ConVar* m_pParent;
+
+	// Static data
+	const char* m_pszDefaultValue;
+
+	// Value
+	// Dynamically allocated
+	char* m_pszString;
+	int							m_StringLength;
+
+	// Values
+	float						m_fValue;
+	int							m_nValue;
+
+	// Min/Max values
+	bool						m_bHasMin;
+	float						m_fMinVal;
+	bool						m_bHasMax;
+	float						m_fMaxVal;
+
+	// Min/Max values for competitive.
+	bool						m_bHasCompMin;
+	float						m_fCompMinVal;
+	bool						m_bHasCompMax;
+	float						m_fCompMaxVal;
+
+	bool						m_bCompetitiveRestrictions;
+
+
+	// Call this function when ConVar changes
+	DWORD			m_fnChangeCallback;
 	operator bool() const {
 		return m_nValue;
 	}

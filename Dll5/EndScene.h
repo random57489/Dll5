@@ -8,7 +8,7 @@ HRESULT __stdcall EndSceneHook(IDirect3DDevice9* vDevice);
 extern LRESULT STDMETHODCALLTYPE hkWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 extern WNDPROC pOldWindowProc;
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-extern char SpeedShotKey[] ;
-extern char syncKey[];
+extern UINT SpeedShotKey;
+extern UINT SyncKey;
 
-extern float unitsBack;
+//extern float unitsBack;

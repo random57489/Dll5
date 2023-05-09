@@ -1,13 +1,22 @@
 #include "client.h"
 #include "general.h"
 std::vector<Vector>Positions;
-std::vector<float>zVels;
+
 bool CrouchedSpeedShots = true;
 Vector predictedLandingPos;
 Vector desiredRocketEndPos;
 CMoveData noNullPtr;
 bool customEndPos = true;
 extern float unitsBack;
+float unitsBack;
+
+void ProcessMovementWrapper() {
+	DWORD address = (DWORD)(pPlayer)+offsetForNoNull; // Do you need to change this offset on each update????
+	DWORD value = (DWORD)&noNullPtr;
+	writeMemoryWithProtection<DWORD>(address, value);
+	writeMemoryWithProtection<float>((DWORD)gpGlobals + 0x10, 0.015f);
+	ProcessMovement(myGameMovement, pPlayer, myGameMovement->mv);
+}
 
 void  GetEndPos(bool WhenStopped, bool speedShoting, bool desiredPosIsLandingPos) {
 	Ray_t myRay;
@@ -27,14 +36,13 @@ void  GetEndPos(bool WhenStopped, bool speedShoting, bool desiredPosIsLandingPos
 	Vector end = start;
 	CTraceFilter filter;
 
-	print("units back: %f\n", unitsBack);
+	//print("units back: %f\n", unitsBack);
 	//DWORD address = (DWORD)(pPlayer)+0x107C;
 	DWORD address = (DWORD)(pPlayer)+offsetForNoNull; // Do you need to change this offset on each update????
 	//DWORD value = (DWORD)(pPlayer + (0x122C / 4));
 	
 	DWORD value = (DWORD)&noNullPtr;
 	writeMemoryWithProtection<DWORD>(address, value);
-	
 	writeMemoryWithProtection<float>((DWORD)gpGlobals + 0x10, 0.015f);
 	//writeMemoryWithProtection<Vector>((DWORD)g_pMoveData+68, g
 	//writeMemoryWithProtection<Vector>(myGameMovment->mv-)
@@ -47,7 +55,7 @@ void  GetEndPos(bool WhenStopped, bool speedShoting, bool desiredPosIsLandingPos
 	while (condition()) {
 		ProcessMovement(myGameMovement, pPlayer, myGameMovement->mv);
 		Positions.push_back(myGameMovement->mv->m_vecAbsOrigin);
-		zVels.push_back(myGameMovement->mv->m_vecVelocity.z);
+		//zVels.push_back(myGameMovement->mv->m_vecVelocity.z);
 	}
 
 	//CPredictionCopy?????
@@ -143,7 +151,7 @@ inline void ClampAngle(Vector& qaAng)
 		qaAng.z = 0;
 }
 
-Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position) {
+Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position, bool crouched) {
 	if (!Position) {
 		DWORD address = (DWORD)(pPlayer)+offsetForNoNull;
 		//DWORD address = (DWORD)(pPlayer)+0x107C;
@@ -171,10 +179,12 @@ Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position) {
 	Vector fwd, right, up;
 
 	CBaseEntity* weapon = gInts::EntList->GetClientEntityFromHandle(*(DWORD*)((DWORD)pPlayer + 3320));
-	float vecOffsetz = -3.0f;
+	//CBaseEntity* weapon2 = gInts::EntList->GetClientEntityFromHandle(*(DWORD*)((DWORD)pPlayer + 3512));
+
+	float vecOffsetz = crouched ? -3.f : 8.f;
 	//if (*(BYTE*)(pPlayer + 280) & 2) // if you're ducking This if statement is commented out when you're speedshoting cuz it seemed to ruin everything. It didn't work
 		//vecOffsetz = 8.0f;
-
+	
 	Vector	vecOffset(23.5, 12.0, vecOffsetz);
 	Vector vecSrc, angForward;
 	typedef void(__thiscall* GetProjectileFireSetupFn)(CBaseEntity*, CBaseEntity*, Vector, Vector*, Vector*, bool, float);
@@ -187,6 +197,7 @@ Vector rocketSource2(Vector* angles, Vector* endPosp, const Vector* Position) {
 			gInts::EngineTrace->TraceRay(myRay, 0x46004003, &filter, &myTraceLocal);
 			*endPosp = myTraceLocal.endpos;
 		}
+	//GetProjectileFireSetup(weapon2, pPlayer, vecOffset, &vecSrc, &angForward, 0, 2000.f);
 	//writeMemoryWithProtection<Vector>((DWORD)pPlayer + 0x28C, originalPos);
 	//printVector(vecSrc);
 	return vecSrc;
@@ -236,9 +247,9 @@ bool getNextFmove(const Vector& viewAngles, float& nextFmove, std::vector<int>* 
 	DWORD value = (DWORD)&noNullPtr;
 	writeMemoryWithProtection<DWORD>(address, value);
 
-	writeMemoryWithProtection<float>((DWORD) &(g_pMoveData->m_flForwardMove), -450.f);
+	writeMemoryWithProtection<float>((DWORD) &(g_pMoveData->m_flForwardMove), -240.f);
 	writeMemoryWithProtection<float>((DWORD)gpGlobals + 0x10, 0.015f);
-	myGameMovement->mv->m_flForwardMove = -450.f;
+	myGameMovement->mv->m_flForwardMove = -240.f;
 	Vector lastPos = g_pMoveData->m_vecAbsOrigin;
 	Vector lastVel = g_pMoveData->m_vecVelocity;
 	ProcessMovement(myGameMovement, pPlayer, myGameMovement->mv);
@@ -262,9 +273,9 @@ bool getNextFmove(const Vector& viewAngles, float& nextFmove, std::vector<int>* 
 		if (ticks) {
 			Vector rocketOrigin = rocketSource2(NULL, NULL, &myGameMovement->mv->m_vecAbsOrigin); // to get exact rocket origin, you would need the origin of the rocket the next tick... But you don't
 			// know what your fmove next tick will be...???
-			ticks->push_back(dist(rocketOrigin, desiredRocketEndPos) / (1100.f * 0.015f));
+			ticks->push_back((int)(dist(rocketOrigin, desiredRocketEndPos) / (1100.f * 0.015f)+1));
 		}
-		nextFmove = -450.f;
+		nextFmove = -240.f;
 		return true;
 	}
 	else if (timeToHorzPos > timeToLand) {
@@ -288,6 +299,20 @@ bool getNextFmove(const Vector& viewAngles, float& nextFmove, std::vector<int>* 
 		nextFmove = sqrt(e);
 		nextFmove = -sqrt(f);
 		
+		float wishdir1 = nextFmove * forward[0], wishdir2 = nextFmove * forward[1];
+		float wishspeed = sqrt(wishdir1 * wishdir1 * wishdir2 * wishdir2);
+		wishdir1 = wishdir1 / wishspeed; wishdir2 = wishdir2 / wishspeed;
+		float accelspeed = 0.15 * wishspeed;
+		float wishspd = wishspeed > 30.f ? 30.f : wishspeed;
+		float currentSpeed = lastVel[0] * wishdir1 + lastVel[1] * wishdir2;
+		float addspeed = wishspd - currentSpeed;
+		if (accelspeed > addspeed)
+			accelspeed = addspeed;
+		float newVel0 = lastVel[0] + accelspeed * wishdir1;
+		float newVel1 = lastVel[1] + accelspeed * wishdir2;
+		print("predicted velocity: %f\n", sqrt(newVel0 * newVel0 + newVel1 * newVel1));
+
+
 		if (ticks) {
 			myGameMovement->mv->m_flForwardMove = nextFmove;
 			myGameMovement->mv->m_vecAbsOrigin = lastPos;
@@ -296,14 +321,15 @@ bool getNextFmove(const Vector& viewAngles, float& nextFmove, std::vector<int>* 
 			writeMemoryWithProtection<Vector>((DWORD) & (g_pMoveData->m_vecVelocity), lastVel);
 			writeMemoryWithProtection<float>((DWORD) & (g_pMoveData->m_flForwardMove), nextFmove);
 			ProcessMovement(myGameMovement, pPlayer, myGameMovement->mv);
+			print("actual speed %f\nDesired Speed: %f\n", sqrt((myGameMovement->mv->m_vecVelocity.x) * (myGameMovement->mv->m_vecVelocity.x) + (myGameMovement->mv->m_vecVelocity.y) * (myGameMovement->mv->m_vecVelocity.y)), desiredSpeed);
 			Vector rocketOrigin = rocketSource2(NULL, NULL, &myGameMovement->mv->m_vecAbsOrigin);
-			ticks->push_back(dist(rocketOrigin, desiredRocketEndPos) / (1100.f * 0.015f)+1);
+			ticks->push_back((int)(dist(rocketOrigin, desiredRocketEndPos) / (1100.f * 0.015f))+1);
 		}
 		return false;
 	}
 	else
 	{
-		nextFmove = -450.f;
+		nextFmove = -240.f;
 		return false;
 	}
 }

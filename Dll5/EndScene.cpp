@@ -3,9 +3,18 @@
 #include "imgui_impl_win32.h"
 #include "Sync.h"
 
-char SpeedShotKey[] = "E";
-char syncKey[] = "F";
-float unitsBack = 30;
+#include "sdk.h"
+
+UINT SpeedShotKey = 'E';
+UINT SyncKey = 'F';
+
+extern float unitsBack;
+
+UINT* keyToEdit = nullptr;
+//struct CUSTOMVERTEX {
+//	float x, y, z;
+//};
+bool showWindow = true;
 HRESULT __stdcall EndSceneHook(IDirect3DDevice9* vDevice) {
 	static bool initGui = false;
 	
@@ -19,34 +28,63 @@ HRESULT __stdcall EndSceneHook(IDirect3DDevice9* vDevice) {
 		initGui = true;
 		
 	}
-	
+	/*LPDIRECT3DVERTEXBUFFER9 g_pVB;
+	vDevice->CreateVertexBuffer(5*sizeof(CUSTOMVERTEX), D3DUSAGE_DONOTCLIP, 0, D3DPOOL_DEFAULT, &g_pVB, NULL)
+	vDevice->DrawPrimitive(D3DPT_LINESTRIP, 0, 5);*/
 
-	ImGui_ImplDX9_NewFrame();
-	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
-	bool show_demo_window = true;
-	ImGui::ShowDemoWindow(&show_demo_window);
-	ImGui::Begin("Hello, world!");
-	if(ImGui::CollapsingHeader("Sync")) {
-		ImGui::RadioButton("Quinting", &quinting, 1);
-		ImGui::RadioButton("Triple", &quinting, 0);
-		ImGui::InputText("Sync key", syncKey, IM_ARRAYSIZE(SpeedShotKey));
+	if (showWindow) {
+		ImGui_ImplDX9_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+
+		//ImGui::ShowDemoWindow(&show_demo_window);
+
+		ImGui::Begin("menu", &showWindow);
+		if (ImGui::CollapsingHeader("Sync")) {
+			ImGui::RadioButton("Quinting", (int*)&type, quint);
+			ImGui::RadioButton("Triple", (int*)&type, triple);
+			ImGui::RadioButton("Double", (int*)&type, doubling);
+			//ImGui::RadioButton("auto detect", (int*)&type, autoDetect);
+			ImGui::Checkbox("Aim at crosshair position", &customRocketEndPos);
+
+		}
+		if (ImGui::CollapsingHeader("SpeedShot")) {
+
+			ImGui::SliderFloat("unitsBack", &unitsBack, -30.f, 30.f);
+		}
+		//ImGui::InputText("Speedshot key", SpeedShotKey, IM_ARRAYSIZE(SpeedShotKey));
+		ImGui::Text("Speedshot key %c", SpeedShotKey);
+		if (ImGui::Button("Edit key"))
+			keyToEdit = &SpeedShotKey;
+		ImGui::Text("Sync key %c", SyncKey);
+		if (ImGui::Button("Edit key"))
+			keyToEdit = &SyncKey;
+
+
+		//ImGui::InputText("Sync key", syncKey, IM_ARRAYSIZE(SpeedShotKey));
+		//ImGui::RadioButton("Double", &doubleSync)
+
+		//ImGui::Checkbox("");
+		ImGui::End();
+		ImGui::Render();
+		ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 	}
-	if (ImGui::CollapsingHeader("SpeedShot")) {
-		ImGui::InputText("Speedshot key", SpeedShotKey, IM_ARRAYSIZE(SpeedShotKey));
-		ImGui::SliderFloat("slider float", &unitsBack, -50.f, 50.f, "unitsBack %.3f");
-	}
-	//ImGui::RadioButton("Double", &doubleSync)
-	ImGui::Checkbox("Aim at crosshair position", &customRocketEndPos);
-	//ImGui::Checkbox("");
-	ImGui::End();
-	ImGui::Render();
-	ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 	return EndScene(vDevice);
 }
 
 LRESULT STDMETHODCALLTYPE hkWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
-		return true;
+	if (keyToEdit && uMsg == WM_KEYDOWN && wParam != VK_INSERT) {
+		*keyToEdit = wParam;
+		keyToEdit = nullptr;
+	}
+	if (uMsg == WM_KEYDOWN && wParam == VK_INSERT)
+		showWindow = !showWindow;
+	if (uMsg == WM_MOUSEWHEEL) {
+		int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+			unitsBack += zDelta / 120.f;
+	}
+	if(showWindow)
+		if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
+			return true;
 	return CallWindowProc(pOldWindowProc, hWnd, uMsg, wParam, lParam);
 }

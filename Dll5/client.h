@@ -99,6 +99,6 @@ struct usefulCmds {
     int buttons;
     Vector viewAngles;
 };
-extern std::vector<usefulCmds>pastCommands;
+//extern std::vector<usefulCmds>pastCommands;
 extern DWORD frameTimeLocation;
 

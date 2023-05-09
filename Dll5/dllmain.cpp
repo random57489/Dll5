@@ -143,7 +143,7 @@ DWORD clientbase;
 
 inline void exit(void* hModule) {
     restoreHook(clientbase + 0x5D9FA4);
-    pastCommands.clear();
+    //pastCommands.clear();
 
     FreeLibraryAndExitThread((HMODULE)hModule, 0);
 }
@@ -192,7 +192,8 @@ void __declspec (naked) WalkMoveTramp() {
 CreateMoveFn CreateMove;
 WNDPROC pOldWindowProc;
 
-
+//extern ConVar* unitsBack;
+//ConVar *unitsBack;
 unsigned int _stdcall startup(void* hModule) {
 
     DWORD dwClientModeAddress = gSignatures.GetClientSignature("8B 0D ? ? ? ? 8B 02 D9 05");
@@ -248,6 +249,9 @@ unsigned int _stdcall startup(void* hModule) {
     gInts::cvar->ConsolePrintf("injected\n");
     ConVarFn ConVarCnstr = (ConVarFn)gSignatures.GetClientSignature("55 8B EC D9 EE 56 6A 00 51 D9 14 24 6A 00 51 D9 14 24 6A 00 51 D9 14 24 6A 00 51 D9 1C 24 6A 00 8B F1 6A 00 FF 75 10 FF");
     std::vector<ConVar*>ConVars;
+    //MakeConVar(unitsBack, 30.f);
+
+    //unitsBack = (ConVar*)malloc(sizeof(ConVar)); ConVarCnstr(unitsBack, "unitsBack", "30", 0); ConVars.push_back(unitsBack);
 
     HWND hWindow = FindWindowA("Valve001", nullptr);
     pOldWindowProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(hWindow, GWLP_WNDPROC, LONG_PTR(hkWndProc)));
